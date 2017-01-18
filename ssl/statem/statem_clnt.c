@@ -1464,6 +1464,7 @@ MSG_PROCESS_RETURN tls_process_server_certificate(SSL *s, PACKET *pkt)
         goto f_err;
     }
 
+    sk_X509_pop_free(s->session->peer_chain, X509_free);
     s->session->peer_chain = sk;
     /*
      * Inconsistency alert: cert_chain does include the peer's certificate,
