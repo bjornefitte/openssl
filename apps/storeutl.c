@@ -16,7 +16,8 @@
 
 typedef enum OPTION_choice {
     OPT_ERR = -1, OPT_EOF = 0, OPT_HELP, OPT_ENGINE, OPT_OUT, OPT_PASSIN,
-    OPT_NOOUT, OPT_TEXT
+    OPT_NOOUT, OPT_TEXT,
+    OPT_SEARCHFOR_CERTS, OPT_SEARCHFOR_KEYS, OPT_SEARCHFOR_CRLS
 } OPTION_CHOICE;
 
 const OPTIONS storeutl_options[] = {
@@ -26,6 +27,9 @@ const OPTIONS storeutl_options[] = {
     {"passin", OPT_PASSIN, 's', "Input file pass phrase source"},
     {"text", OPT_TEXT, '-', "Print a text form of the objects"},
     {"noout", OPT_NOOUT, '-', "No PEM output, just status"},
+    {"certs", OPT_SEARCHFOR_CERTS, '-', "Search for certificates only"},
+    {"keys", OPT_SEARCHFOR_KEYS, '-', "Search for keys only"},
+    {"crls", OPT_SEARCHFOR_CRLS, '-', "Search for CRLs only"},
 #ifndef OPENSSL_NO_ENGINE
     {"engine", OPT_ENGINE, 's', "Use engine, possibly a hardware device"},
 #endif
@@ -42,6 +46,7 @@ int storeutl_main(int argc, char *argv[])
     OPTION_CHOICE o;
     char *prog = opt_init(argc, argv, storeutl_options);
     PW_CB_DATA pw_cb_data;
+    int expected = 0;
 
     while ((o = opt_next()) != OPT_EOF) {
         switch (o) {
@@ -65,6 +70,37 @@ int storeutl_main(int argc, char *argv[])
             break;
         case OPT_TEXT:
             text = 1;
+            break;
+        case OPT_SEARCHFOR_CERTS:
+        case OPT_SEARCHFOR_KEYS:
+        case OPT_SEARCHFOR_CRLS:
+            if (expected != 0) {
+                BIO_printf(bio_err, "%s: only one search type can be given.\n",
+                           prog);
+                goto end;
+            }
+            {
+                static const struct {
+                    enum OPTION_choice choice;
+                    int type;
+                } map[] = {
+                    {OPT_SEARCHFOR_CERTS, OSSL_STORE_INFO_CERT},
+                    {OPT_SEARCHFOR_KEYS, OSSL_STORE_INFO_PKEY},
+                    {OPT_SEARCHFOR_CRLS, OSSL_STORE_INFO_CRL},
+                };
+                size_t i;
+
+                for (i = 0; i < OSSL_NELEM(map); i++)
+                    if (o == map[i].choice) {
+                        expected = map[i].type;
+                        break;
+                    }
+                /*
+                 * If expected wasn't set at this point, it means the map
+                 * isn't syncronised with the possible options leading here.
+                 */
+                OPENSSL_assert(expected != 0);
+            }
             break;
         case OPT_ENGINE:
             e = setup_engine(opt_arg(), 0);
@@ -99,6 +135,13 @@ int storeutl_main(int argc, char *argv[])
         BIO_printf(bio_err, "Couldn't open file or uri %s\n", argv[0]);
         ERR_print_errors(bio_err);
         goto end;
+    }
+
+    if (expected != 0) {
+        if (!OSSL_STORE_expect(store_ctx, expected)) {
+            ERR_print_errors(bio_err);
+            goto end2;
+        }
     }
 
     /* From here on, we count errors, and we'll return the count at the end */
@@ -185,10 +228,10 @@ int storeutl_main(int argc, char *argv[])
     }
     BIO_printf(out, "Total found: %d\n", items);
 
+ end2:
     if (!OSSL_STORE_close(store_ctx)) {
         ERR_print_errors(bio_err);
         ret++;
-        goto end;
     }
 
  end:
