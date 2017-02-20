@@ -17,7 +17,9 @@
 typedef enum OPTION_choice {
     OPT_ERR = -1, OPT_EOF = 0, OPT_HELP, OPT_ENGINE, OPT_OUT, OPT_PASSIN,
     OPT_NOOUT, OPT_TEXT,
-    OPT_SEARCHFOR_CERTS, OPT_SEARCHFOR_KEYS, OPT_SEARCHFOR_CRLS
+    OPT_SEARCHFOR_CERTS, OPT_SEARCHFOR_KEYS, OPT_SEARCHFOR_CRLS,
+    OPT_CRITERION_SUBJECT, OPT_CRITERION_ISSUER, OPT_CRITERION_SERIAL,
+    OPT_CRITERION_ALIAS
 } OPTION_CHOICE;
 
 const OPTIONS storeutl_options[] = {
@@ -30,6 +32,10 @@ const OPTIONS storeutl_options[] = {
     {"certs", OPT_SEARCHFOR_CERTS, '-', "Search for certificates only"},
     {"keys", OPT_SEARCHFOR_KEYS, '-', "Search for keys only"},
     {"crls", OPT_SEARCHFOR_CRLS, '-', "Search for CRLs only"},
+    {"subject", OPT_CRITERION_SUBJECT, 's', "Search by subject"},
+    {"issuer", OPT_CRITERION_ISSUER, 's', "Search by issuer and serial, issuer name"},
+    {"serial", OPT_CRITERION_SERIAL, 's', "Search by issuer and serial, serial number"},
+    {"alias", OPT_CRITERION_ALIAS, 's', "Search by alias"},
 #ifndef OPENSSL_NO_ENGINE
     {"engine", OPT_ENGINE, 's', "Use engine, possibly a hardware device"},
 #endif
@@ -47,6 +53,11 @@ int storeutl_main(int argc, char *argv[])
     char *prog = opt_init(argc, argv, storeutl_options);
     PW_CB_DATA pw_cb_data;
     int expected = 0;
+    int criterion = 0;
+    X509_NAME *subject = NULL, *issuer = NULL;
+    ASN1_INTEGER *serial = NULL;
+    char *alias = NULL;
+    OSSL_STORE_SEARCH *search = NULL;
 
     while ((o = opt_next()) != OPT_EOF) {
         switch (o) {
@@ -102,6 +113,82 @@ int storeutl_main(int argc, char *argv[])
                 OPENSSL_assert(expected != 0);
             }
             break;
+        case OPT_CRITERION_SUBJECT:
+            if (criterion != 0) {
+                BIO_printf(bio_err, "%s: criterion already given.\n",
+                           prog);
+                goto end;
+            }
+            criterion = OSSL_STORE_SEARCH_BY_NAME;
+            if (subject != NULL) {
+                BIO_printf(bio_err, "%s: subject already given.\n",
+                           prog);
+                goto end;
+            }
+            if ((subject = parse_name(opt_arg(), MBSTRING_UTF8, 1)) == NULL) {
+                BIO_printf(bio_err, "%s: can't parse subject argument.\n",
+                           prog);
+                goto end;
+            }
+            break;
+        case OPT_CRITERION_ISSUER:
+            if (criterion != 0
+                || (criterion == OSSL_STORE_SEARCH_BY_ISSUER_SERIAL
+                    && issuer != NULL)) {
+                BIO_printf(bio_err, "%s: criterion already given.\n",
+                           prog);
+                goto end;
+            }
+            criterion = OSSL_STORE_SEARCH_BY_ISSUER_SERIAL;
+            if (issuer != NULL) {
+                BIO_printf(bio_err, "%s: issuer already given.\n",
+                           prog);
+                goto end;
+            }
+            if ((issuer = parse_name(opt_arg(), MBSTRING_UTF8, 1)) == NULL) {
+                BIO_printf(bio_err, "%s: can't parse issuer argument.\n",
+                           prog);
+                goto end;
+            }
+            break;
+        case OPT_CRITERION_SERIAL:
+            if (criterion != 0
+                || (criterion == OSSL_STORE_SEARCH_BY_ISSUER_SERIAL
+                    && serial != NULL)) {
+                BIO_printf(bio_err, "%s: criterion already given.\n",
+                           prog);
+                goto end;
+            }
+            criterion = OSSL_STORE_SEARCH_BY_ISSUER_SERIAL;
+            if (serial != NULL) {
+                BIO_printf(bio_err, "%s: serial number already given.\n",
+                           prog);
+                goto end;
+            }
+            if ((serial = s2i_ASN1_INTEGER(NULL, opt_arg())) == NULL) {
+                BIO_printf(bio_err, "%s: can't parse serial number argument.\n",
+                           prog);
+                goto end;
+            }
+            break;
+        case OPT_CRITERION_ALIAS:
+            if (criterion != 0) {
+                BIO_printf(bio_err, "%s: criterion already given.\n",
+                           prog);
+                goto end;
+            }
+            criterion = OSSL_STORE_SEARCH_BY_ALIAS;
+            if (alias != NULL) {
+                BIO_printf(bio_err, "%s: alias already given.\n",
+                           prog);
+                goto end;
+            }
+            if ((alias = OPENSSL_strdup(opt_arg())) == NULL) {
+                BIO_printf(bio_err, "%s: can't parse alias argument.\n",
+                           prog);
+                goto end;
+            }
+            break;
         case OPT_ENGINE:
             e = setup_engine(opt_arg(), 0);
             break;
@@ -117,6 +204,45 @@ int storeutl_main(int argc, char *argv[])
     if (argc > 1) {
         BIO_printf(bio_err, "%s: Unknown extra parameters after URI\n", prog);
         goto opthelp;
+    }
+
+    if (criterion != 0) {
+        switch (criterion) {
+        case OSSL_STORE_SEARCH_BY_NAME:
+            if ((search = OSSL_STORE_SEARCH_by_name(subject)) == NULL) {
+                ERR_print_errors(bio_err);
+                goto end;
+            }
+            break;
+        case OSSL_STORE_SEARCH_BY_ISSUER_SERIAL:
+            if (issuer == NULL || serial == NULL) {
+                BIO_printf(bio_err,
+                           "%s: both -issuer and -serial must be given.\n",
+                           prog);
+                goto end;
+            }
+            if ((search = OSSL_STORE_SEARCH_by_issuer_serial(issuer, serial))
+                == NULL) {
+                ERR_print_errors(bio_err);
+                goto end;
+            }
+            break;
+        case OSSL_STORE_SEARCH_BY_KEY_FINGERPRINT:
+#if 0
+            if ((search = OSSL_STORE_SEARCH_by_key_fingerprint(fingerprint))
+                == NULL) {
+                ERR_print_errors(bio_err);
+                goto end;
+            }
+#endif
+            break;
+        case OSSL_STORE_SEARCH_BY_ALIAS:
+            if ((search = OSSL_STORE_SEARCH_by_alias(alias)) == NULL) {
+                ERR_print_errors(bio_err);
+                goto end;
+            }
+            break;
+        }
     }
 
     if (!app_passwd(passinarg, NULL, &passin, NULL)) {
@@ -139,6 +265,20 @@ int storeutl_main(int argc, char *argv[])
 
     if (expected != 0) {
         if (!OSSL_STORE_expect(store_ctx, expected)) {
+            ERR_print_errors(bio_err);
+            goto end2;
+        }
+    }
+
+    if (criterion != 0) {
+        if (!OSSL_STORE_supports_search(store_ctx, criterion)) {
+            BIO_printf(bio_err,
+                       "%s: the store scheme doesn't support the given search criteria.\n",
+                       prog);
+            goto end2;
+        }
+
+        if (!OSSL_STORE_find(store_ctx, search)) {
             ERR_print_errors(bio_err);
             goto end2;
         }
@@ -235,6 +375,11 @@ int storeutl_main(int argc, char *argv[])
     }
 
  end:
+    OPENSSL_free(alias);
+    ASN1_INTEGER_free(serial);
+    X509_NAME_free(subject);
+    X509_NAME_free(issuer);
+    OSSL_STORE_SEARCH_free(search);
     BIO_free_all(out);
     OPENSSL_free(passin);
     release_engine(e);
