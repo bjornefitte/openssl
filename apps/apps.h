@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2017 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the OpenSSL license (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -572,6 +572,7 @@ void store_setup_crl_download(X509_STORE *st);
 
 int app_isdir(const char *);
 int app_access(const char *, int flag);
+char *app_dirname(char *path);
 int fileno_stdin(void);
 int fileno_stdout(void);
 int raw_read_stdin(void *, int);
