@@ -4345,3 +4345,6 @@ OSSL_STORE_LOADER_get0_engine           4287	1_1_1	EXIST::FUNCTION:
 OPENSSL_fork_prepare                    4288	1_1_1	EXIST:UNIX:FUNCTION:
 OPENSSL_fork_parent                     4289	1_1_1	EXIST:UNIX:FUNCTION:
 OPENSSL_fork_child                      4290	1_1_1	EXIST:UNIX:FUNCTION:
+UI_get_result_length                    4291	1_1_1	EXIST::FUNCTION:
+UI_set_result_ex                        4292	1_1_1	EXIST::FUNCTION:
+UI_get_result_string_length             4293	1_1_1	EXIST::FUNCTION:
