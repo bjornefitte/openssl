@@ -14,6 +14,7 @@
 #ifndef OPENSSL_NO_ERR
 
 static const ERR_STRING_DATA OSSL_STORE_str_functs[] = {
+    {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_CACHE_LOAD, 0), "cache_load"},
     {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_FILE_CTRL, 0), "file_ctrl"},
     {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_FILE_GET_PASS, 0),
      "file_get_pass"},
@@ -25,6 +26,10 @@ static const ERR_STRING_DATA OSSL_STORE_str_functs[] = {
     {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_FILE_OPEN, 0), "file_open"},
     {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_OSSL_STORE_ATTACH_PEM_BIO, 0),
      "ossl_store_attach_pem_bio"},
+    {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_OSSL_STORE_CACHED_OPEN, 0),
+     "OSSL_STORE_CACHED_open"},
+    {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_OSSL_STORE_CACHE_NEW, 0),
+     "OSSL_STORE_CACHE_new"},
     {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_OSSL_STORE_FILE_ATTACH_PEM_BIO_INT, 0),
      "ossl_store_file_attach_pem_bio_int"},
     {ERR_PACK(ERR_LIB_OSSL_STORE, OSSL_STORE_F_OSSL_STORE_GET0_LOADER_INT, 0),
@@ -106,6 +111,8 @@ static const ERR_STRING_DATA OSSL_STORE_str_reasons[] = {
     "unsupported content type"},
     {ERR_PACK(ERR_LIB_OSSL_STORE, 0, OSSL_STORE_R_URI_AUTHORITY_UNSUPPORTED),
     "uri authority unsupported"},
+    {ERR_PACK(ERR_LIB_OSSL_STORE, 0, OSSL_STORE_R_URI_NOT_IN_CACHE),
+    "uri not in cache"},
     {0, NULL}
 };
 
