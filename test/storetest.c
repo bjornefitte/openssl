@@ -10,9 +10,6 @@
 #include <openssl/store_cache.h>
 #include "testutil.h"
 
-static size_t files_n;
-static char **files;
-
 static int test_store_cache()
 {
     int ret = 1;
@@ -22,14 +19,14 @@ static int test_store_cache()
     if ((cache = OSSL_STORE_CACHE_new()) == NULL)
         return 0;
 
-    for (i = 0; i < files_n; i++) {
+    for (i = 0; i < test_get_argument_count(); i++) {
         size_t items = 0, items2 = 0;
         OSSL_STORE_CTX *ctx = NULL;
+        const char *file = test_get_argument(i);
 
 
         /* Fetch contents from the actual files */
-        ctx = OSSL_STORE_CACHED_open(cache, files[i], 0, NULL, NULL, NULL,
-                                     NULL);
+        ctx = OSSL_STORE_CACHED_open(cache, file, 0, NULL, NULL, NULL, NULL);
 
         if (ctx == NULL)
             continue;
@@ -45,7 +42,7 @@ static int test_store_cache()
         }
         OSSL_STORE_close(ctx);
 
-        TEST_info("%s: %zu items found", files[i], items);
+        TEST_info("%s: %zu items found", file, items);
 
         ERR_clear_error();
 
@@ -53,8 +50,7 @@ static int test_store_cache()
          * This time, only pilfer the cache and check that the amount of
          * objects is that same as above
          */
-        ctx = OSSL_STORE_CACHED_open(cache, files[i], 1,
-                                     NULL, NULL, NULL, NULL);
+        ctx = OSSL_STORE_CACHED_open(cache, file, 1, NULL, NULL, NULL, NULL);
 
         if (ctx == NULL)
             continue;
@@ -70,7 +66,7 @@ static int test_store_cache()
         }
         OSSL_STORE_close(ctx);
 
-        TEST_info("%s: %zu items found in cache", files[i], items);
+        TEST_info("%s: %zu items found in cache", file, items);
 
         ERR_clear_error();
 
@@ -85,12 +81,8 @@ static int test_store_cache()
     return ret;
 }
 
-int test_main(int argc, char *argv[])
+int setup_tests(void)
 {
-    files_n = argc - 1;
-    files = &argv[1];
-
     ADD_TEST(test_store_cache);
-
-    return run_tests(argv[0]);
+    return 1;
 }
